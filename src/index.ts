@@ -26,7 +26,8 @@ const buttons: MessageActionRow[] = [
 ]
 
 const intents = new Intents()
-    .add(Intents.FLAGS.DIRECT_MESSAGES);
+    .add(Intents.FLAGS.GUILDS)
+    .add(Intents.FLAGS.GUILD_MESSAGES)
 
 const client = new Client({intents});
 
@@ -69,7 +70,7 @@ client.on('ready', ()=>(async ()=>{
     let link = new URL('https://discord.com/oauth2/authorize');
     link.searchParams.set('client_id', client.application.id);
     link.searchParams.set('scope', 'bot applications.commands');
-    link.searchParams.set('permissions', '3072');
+    link.searchParams.set('permissions', '274877975552');
     console.log('Use this link to invite bot:');
     console.log(link.toString());
     let guilds = await client.guilds.fetch({});
