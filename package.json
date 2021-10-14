@@ -1,7 +1,7 @@
 {
-  "name": "",
-  "version": "",
-  "description": "",
+  "name": "discord-reaction-bot",
+  "version": "1.0.0",
+  "description": "A very damn simple bot for \"press X to doubt\".",
   "main": "index.js",
   "scripts": {
     "prod": "NODE_ENV=production node index.js",
@@ -9,8 +9,8 @@
     "build": "gulp build",
     "watch": "gulp watch"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "0nepeop1e",
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^16.10.9",
     "gulp": "^4.0.2",
@@ -19,5 +19,8 @@
     "gulp-typescript": "^6.0.0-alpha.1",
     "ts-node": "^10.3.0",
     "typescript": "^4.4.4"
+  },
+  "dependencies": {
+    "discord.js": "^13.2.0"
   }
 }
