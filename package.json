@@ -1,8 +1,12 @@
 {
-  "name": "discord-reaction-bot",
+  "name": "discord-doubt-bot",
   "version": "1.0.1",
   "description": "A very damn simple bot for \"press X to doubt\".",
   "main": "index.js",
+  "repository": {
+    "url": "https://github.com/eslym/discord-doubt-bot.git"
+  },
+  "keywords": ["discord", "bot"],
   "scripts": {
     "prod": "NODE_ENV=production node index.js",
     "test": "node index.js",
@@ -13,8 +17,10 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^16.10.9",
+    "child_process": "^1.0.2",
     "gulp": "^4.0.2",
     "gulp-clean": "^0.4.0",
+    "gulp-copy": "^4.0.1",
     "gulp-sourcemaps": "^3.0.0",
     "gulp-typescript": "^6.0.0-alpha.1",
     "ts-node": "^10.3.0",
