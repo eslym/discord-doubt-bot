@@ -21,3 +21,7 @@ Via PM2:
 NODE_ENV=prodcution DISCORD_TOKEN="put your bot token here" pm2 start --name discord-doubt-bot index.js
 pm2 save
 ```
+## Docker
+```shell
+docker run -d -e DISCORD_TOKEN="put your bot token here" eslym/discord-doubt-bot:latest
+```
