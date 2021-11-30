@@ -5,10 +5,16 @@ import {
     ContextMenuInteraction,
     Intents, InteractionReplyOptions,
     Message, MessageActionRow,
-    MessageButton, MessageEmbed, OAuth2Guild, ReplyMessageOptions, Snowflake, TextBasedChannels
+    MessageButton, MessageEmbed, Snowflake, TextBasedChannels
 } from 'discord.js';
 import moment = require("moment");
 import Dict = NodeJS.Dict;
+import path = require('path');
+import fs = require('fs');
+import YAML = require('yaml');
+import {format} from "util";
+
+const root = path.resolve(__dirname, '..');
 
 const commands: ApplicationCommandData[] = [
     {
@@ -16,6 +22,27 @@ const commands: ApplicationCommandData[] = [
         type: 'MESSAGE',
     }
 ]
+
+interface ReactionList {
+    text: string,
+    images: string[]
+}
+
+const reactions: Dict<ReactionList> = {};
+
+if(fs.existsSync(path.resolve(root, 'reactions.yml'))){
+    let res = YAML.parse(fs.readFileSync(path.resolve(root, 'reactions.yml')).toString()) as Dict<ReactionList>;
+    for(let [key, reaction] of Object.entries(res)){
+        if(reaction.images.length === 0){
+            continue;
+        }
+        reactions[key] = reaction;
+        commands.push({
+            name: key,
+            type: 'MESSAGE',
+        });
+    }
+}
 
 const buttons: MessageActionRow[] = [
     new MessageActionRow()
@@ -63,6 +90,15 @@ const presetEmbed: Dict<InteractionReplyOptions> = {
         ],
         ephemeral: true,
     },
+
+    reactionFailed: {
+        embeds: [
+            new MessageEmbed()
+                .setDescription("Failed to give reaction.")
+                .setColor('RED')
+        ],
+        ephemeral: true,
+    }
 }
 
 const intents = new Intents()
@@ -75,7 +111,7 @@ function randomByte() {
     return 128 + Math.floor(Math.random() * 128);
 }
 
-async function handleButton(button: ButtonInteraction) {
+async function handleDoubtButton(button: ButtonInteraction) {
     try {
         let channel = button.channel;
         if (!channel) {
@@ -88,7 +124,7 @@ async function handleButton(button: ButtonInteraction) {
         let embed = new MessageEmbed()
             .setColor([randomByte(), randomByte(), randomByte()])
             .setDescription(`${button.user} doubted.`)
-            .setFooter(moment().format('D MMM YYYY, hh:mm A'), button.user.avatarURL());
+            .setTimestamp(new Date());
         await source.reply({embeds: [embed]});
         await button.reply(presetEmbed.doubt);
     } catch (_) {
@@ -96,7 +132,7 @@ async function handleButton(button: ButtonInteraction) {
     }
 }
 
-async function handleContextMenu(context: ContextMenuInteraction) {
+async function handleDoubtContext(context: ContextMenuInteraction) {
     try {
         let channel = context.channel;
         if (!channel) {
@@ -108,7 +144,7 @@ async function handleContextMenu(context: ContextMenuInteraction) {
             .setColor([randomByte(), randomByte(), randomByte()])
             .setTitle('Press ❌ to doubt.')
             .setDescription(`${context.user} wants to doubt.`)
-            .setFooter(moment().format('D MMM YYYY, hh:mm A'), context.user.avatarURL());
+            .setTimestamp(new Date());
         await message.reply({
             embeds: [embed],
             components: buttons
@@ -116,6 +152,37 @@ async function handleContextMenu(context: ContextMenuInteraction) {
         await context.reply(presetEmbed.askForDoubt);
     } catch (_) {
         await context.reply(presetEmbed.askForDoubtFailed);
+    }
+}
+
+
+async function handleReactionContext(context: ContextMenuInteraction) {
+    try {
+        let channel = context.channel;
+        if (!channel) {
+            let guild = await client.guilds.fetch(context.guildId);
+            channel = await guild.channels.fetch(context.channelId) as TextBasedChannels;
+        }
+        let message: Message = await channel.messages.fetch(context.targetId);
+        let sample = reactions[context.commandName].images;
+        let embed = new MessageEmbed()
+            .setColor([randomByte(), randomByte(), randomByte()])
+            .setDescription(format(reactions[context.commandName].text, context.user.toString()))
+            .setImage(sample[Math.floor(Math.random() * sample.length)])
+            .setTimestamp(new Date());
+        await message.reply({
+            embeds: [embed],
+        });
+        await context.reply({
+            embeds: [
+                new MessageEmbed()
+                    .setDescription(format(reactions[context.commandName].text, 'you'))
+                    .setColor('BLUE')
+            ],
+            ephemeral: true,
+        });
+    } catch (_) {
+        await context.reply(presetEmbed.reactionFailed);
     }
 }
 
@@ -152,10 +219,14 @@ client.on('guildCreate', (guild) => (async () => {
 
 client.on('interactionCreate', (interaction) => (async () => {
     if (interaction.isButton()) {
-        return handleButton(interaction);
+        return handleDoubtButton(interaction);
     }
     if (interaction.isContextMenu()) {
-        return handleContextMenu(interaction);
+        if(interaction.commandName === 'Ask for Doubt'){
+            return handleDoubtContext(interaction);
+        } else {
+            return handleReactionContext(interaction);
+        }
     }
 })().catch(console.error));
 

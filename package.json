@@ -6,7 +6,10 @@
   "repository": {
     "url": "https://github.com/eslym/discord-doubt-bot.git"
   },
-  "keywords": ["discord", "bot"],
+  "keywords": [
+    "discord",
+    "bot"
+  ],
   "scripts": {
     "prod": "NODE_ENV=production node index.js",
     "test": "node index.js",
@@ -28,6 +31,7 @@
   },
   "dependencies": {
     "discord.js": "^13.2.0",
-    "moment": "^2.29.1"
+    "moment": "^2.29.1",
+    "yaml": "^1.10.2"
   }
 }
