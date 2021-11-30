@@ -1,6 +1,6 @@
 {
   "name": "discord-doubt-bot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A very damn simple bot for \"press X to doubt\".",
   "main": "index.js",
   "repository": {
