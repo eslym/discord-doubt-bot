@@ -10,10 +10,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
+const util_1 = require("util");
 const path = require("path");
 const fs = require("fs");
 const YAML = require("yaml");
-const util_1 = require("util");
 const root = path.resolve(__dirname, '..');
 const commands = [
     {
@@ -29,11 +29,11 @@ if (fs.existsSync(path.resolve(root, 'reactions.yml'))) {
             continue;
         }
         reactions[key] = reaction;
-        commands.push({
-            name: key,
-            type: 'MESSAGE',
-        });
     }
+    commands.push({
+        name: 'Random Reaction',
+        type: "MESSAGE",
+    });
 }
 const buttons = [
     new discord_js_1.MessageActionRow()
@@ -74,6 +74,13 @@ const presetEmbed = {
                 .setColor('RED')
         ],
         ephemeral: true,
+    },
+    reaction: {
+        embeds: [
+            new discord_js_1.MessageEmbed()
+                .setDescription('Select a type of reaction to give reaction')
+                .setColor('BLUE')
+        ],
     },
     reactionFailed: {
         embeds: [
@@ -142,29 +149,41 @@ function handleDoubtContext(context) {
 function handleReactionContext(context) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let channel = context.channel;
-            if (!channel) {
-                let guild = yield client.guilds.fetch(context.guildId);
-                channel = (yield guild.channels.fetch(context.channelId));
-            }
-            let message = yield channel.messages.fetch(context.targetId);
-            let sample = reactions[context.commandName].images;
+            let menu = new discord_js_1.MessageSelectMenu()
+                .setCustomId('reaction')
+                .setPlaceholder('Select an reaction type to react.')
+                .setOptions(Object.entries(reactions).map(e => ({
+                label: e[0],
+                description: (0, util_1.format)(e[1].text, 'you'),
+                value: `${context.targetId};${e[0]}`
+            })));
+            let msg = {
+                embeds: presetEmbed.reaction.embeds,
+                components: [new discord_js_1.MessageActionRow({ components: [menu] })],
+                ephemeral: true
+            };
+            yield context.reply(msg);
+        }
+        catch (_) {
+            yield context.reply(presetEmbed.reactionFailed);
+        }
+    });
+}
+function handleSelectMenu(context) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            let [msgid, type] = context.values[0].split(';');
+            let sample = reactions[type].images;
             let embed = new discord_js_1.MessageEmbed()
                 .setColor([randomByte(), randomByte(), randomByte()])
-                .setDescription((0, util_1.format)(reactions[context.commandName].text, context.user.toString()))
+                .setDescription((0, util_1.format)(reactions[type].text, context.user.toString()))
                 .setImage(sample[Math.floor(Math.random() * sample.length)])
                 .setTimestamp(new Date());
+            let message = yield context.channel.messages.fetch(msgid);
             yield message.reply({
                 embeds: [embed],
             });
-            yield context.reply({
-                embeds: [
-                    new discord_js_1.MessageEmbed()
-                        .setDescription((0, util_1.format)(reactions[context.commandName].text, 'you'))
-                        .setColor('BLUE')
-                ],
-                ephemeral: true,
-            });
+            yield context.update(presetEmbed.reaction);
         }
         catch (_) {
             yield context.reply(presetEmbed.reactionFailed);
@@ -175,7 +194,7 @@ client.on('ready', () => (() => __awaiter(void 0, void 0, void 0, function* () {
     let link = new URL('https://discord.com/oauth2/authorize');
     link.searchParams.set('client_id', client.application.id);
     link.searchParams.set('scope', 'bot applications.commands');
-    link.searchParams.set('permissions', '274877975552');
+    link.searchParams.set('permissions', '274878123008');
     console.log('Use this link to invite bot:');
     console.log(link.toString());
     let guilds = yield client.guilds.fetch();
@@ -204,6 +223,9 @@ client.on('guildCreate', (guild) => (() => __awaiter(void 0, void 0, void 0, fun
 client.on('interactionCreate', (interaction) => (() => __awaiter(void 0, void 0, void 0, function* () {
     if (interaction.isButton()) {
         return handleDoubtButton(interaction);
+    }
+    if (interaction.isSelectMenu()) {
+        return handleSelectMenu(interaction);
     }
     if (interaction.isContextMenu()) {
         if (interaction.commandName === 'Ask for Doubt') {
