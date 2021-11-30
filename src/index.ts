@@ -3,16 +3,21 @@ import {
     ButtonInteraction,
     Client,
     ContextMenuInteraction,
-    Intents, InteractionReplyOptions,
-    Message, MessageActionRow,
-    MessageButton, MessageEmbed, Snowflake, TextBasedChannels
+    Intents,
+    InteractionReplyOptions,
+    Message,
+    MessageActionRow,
+    MessageButton,
+    MessageEmbed,
+    MessageSelectMenu, SelectMenuInteraction,
+    Snowflake,
+    TextBasedChannels
 } from 'discord.js';
-import moment = require("moment");
-import Dict = NodeJS.Dict;
+import {format} from "util";
 import path = require('path');
 import fs = require('fs');
 import YAML = require('yaml');
-import {format} from "util";
+import Dict = NodeJS.Dict;
 
 const root = path.resolve(__dirname, '..');
 
@@ -30,18 +35,18 @@ interface ReactionList {
 
 const reactions: Dict<ReactionList> = {};
 
-if(fs.existsSync(path.resolve(root, 'reactions.yml'))){
+if (fs.existsSync(path.resolve(root, 'reactions.yml'))) {
     let res = YAML.parse(fs.readFileSync(path.resolve(root, 'reactions.yml')).toString()) as Dict<ReactionList>;
-    for(let [key, reaction] of Object.entries(res)){
-        if(reaction.images.length === 0){
+    for (let [key, reaction] of Object.entries(res)) {
+        if (reaction.images.length === 0) {
             continue;
         }
         reactions[key] = reaction;
-        commands.push({
-            name: key,
-            type: 'MESSAGE',
-        });
     }
+    commands.push({
+        name: 'Random Reaction',
+        type: "MESSAGE",
+    });
 }
 
 const buttons: MessageActionRow[] = [
@@ -52,7 +57,7 @@ const buttons: MessageActionRow[] = [
                 .setEmoji('❌')
                 .setCustomId('doubt')
         )
-]
+];
 
 const presetEmbed: Dict<InteractionReplyOptions> = {
     askForDoubt: {
@@ -89,6 +94,14 @@ const presetEmbed: Dict<InteractionReplyOptions> = {
                 .setColor('RED')
         ],
         ephemeral: true,
+    },
+
+    reaction: {
+        embeds: [
+            new MessageEmbed()
+                .setDescription('Select a type of reaction to give reaction')
+                .setColor('BLUE')
+        ],
     },
 
     reactionFailed: {
@@ -155,32 +168,41 @@ async function handleDoubtContext(context: ContextMenuInteraction) {
     }
 }
 
-
-async function handleReactionContext(context: ContextMenuInteraction) {
+async function handleReactionContext(context: ContextMenuInteraction){
     try {
-        let channel = context.channel;
-        if (!channel) {
-            let guild = await client.guilds.fetch(context.guildId);
-            channel = await guild.channels.fetch(context.channelId) as TextBasedChannels;
+        let menu = new MessageSelectMenu()
+            .setCustomId('reaction')
+            .setPlaceholder('Select an reaction type to react.')
+            .setOptions(Object.entries(reactions).map(e=>({
+                label: e[0],
+                description: format(e[1].text, 'you'),
+                value: `${context.targetId};${e[0]}`
+            })));
+        let msg: InteractionReplyOptions = {
+            embeds: presetEmbed.reaction.embeds,
+            components: [new MessageActionRow({components: [menu]})],
+            ephemeral: true
         }
-        let message: Message = await channel.messages.fetch(context.targetId);
-        let sample = reactions[context.commandName].images;
+        await context.reply(msg);
+    } catch (_) {
+        await context.reply(presetEmbed.reactionFailed);
+    }
+}
+
+async function handleSelectMenu(context: SelectMenuInteraction) {
+    try {
+        let [msgid, type] = context.values[0].split(';');
+        let sample = reactions[type].images;
         let embed = new MessageEmbed()
             .setColor([randomByte(), randomByte(), randomByte()])
-            .setDescription(format(reactions[context.commandName].text, context.user.toString()))
+            .setDescription(format(reactions[type].text, context.user.toString()))
             .setImage(sample[Math.floor(Math.random() * sample.length)])
             .setTimestamp(new Date());
+        let message = await context.channel.messages.fetch(msgid);
         await message.reply({
             embeds: [embed],
         });
-        await context.reply({
-            embeds: [
-                new MessageEmbed()
-                    .setDescription(format(reactions[context.commandName].text, 'you'))
-                    .setColor('BLUE')
-            ],
-            ephemeral: true,
-        });
+        await context.update(presetEmbed.reaction);
     } catch (_) {
         await context.reply(presetEmbed.reactionFailed);
     }
@@ -190,21 +212,21 @@ client.on('ready', () => (async () => {
     let link = new URL('https://discord.com/oauth2/authorize');
     link.searchParams.set('client_id', client.application.id);
     link.searchParams.set('scope', 'bot applications.commands');
-    link.searchParams.set('permissions', '274877975552');
+    link.searchParams.set('permissions', '274878123008');
     console.log('Use this link to invite bot:');
     console.log(link.toString());
     let guilds = await client.guilds.fetch();
-    while(guilds.size > 0){
+    while (guilds.size > 0) {
         let latest: Snowflake = undefined;
-        for (let apiGuild of guilds.values()){
+        for (let apiGuild of guilds.values()) {
             latest = apiGuild.id;
-            try{
+            try {
                 let guild = await apiGuild.fetch();
                 if (!guild.commands) {
                     continue;
                 }
                 await guild.commands.set(commands);
-            } catch (err){
+            } catch (err) {
                 console.warn(err);
             }
         }
@@ -221,8 +243,11 @@ client.on('interactionCreate', (interaction) => (async () => {
     if (interaction.isButton()) {
         return handleDoubtButton(interaction);
     }
+    if (interaction.isSelectMenu()){
+        return handleSelectMenu(interaction);
+    }
     if (interaction.isContextMenu()) {
-        if(interaction.commandName === 'Ask for Doubt'){
+        if (interaction.commandName === 'Ask for Doubt') {
             return handleDoubtContext(interaction);
         } else {
             return handleReactionContext(interaction);
