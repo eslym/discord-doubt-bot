@@ -10,13 +10,31 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
-const moment = require("moment");
+const path = require("path");
+const fs = require("fs");
+const YAML = require("yaml");
+const util_1 = require("util");
+const root = path.resolve(__dirname, '..');
 const commands = [
     {
         name: 'Ask for Doubt',
         type: 'MESSAGE',
     }
 ];
+const reactions = {};
+if (fs.existsSync(path.resolve(root, 'reactions.yml'))) {
+    let res = YAML.parse(fs.readFileSync(path.resolve(root, 'reactions.yml')).toString());
+    for (let [key, reaction] of Object.entries(res)) {
+        if (reaction.images.length === 0) {
+            continue;
+        }
+        reactions[key] = reaction;
+        commands.push({
+            name: key,
+            type: 'MESSAGE',
+        });
+    }
+}
 const buttons = [
     new discord_js_1.MessageActionRow()
         .addComponents(new discord_js_1.MessageButton()
@@ -57,6 +75,14 @@ const presetEmbed = {
         ],
         ephemeral: true,
     },
+    reactionFailed: {
+        embeds: [
+            new discord_js_1.MessageEmbed()
+                .setDescription("Failed to give reaction.")
+                .setColor('RED')
+        ],
+        ephemeral: true,
+    }
 };
 const intents = new discord_js_1.Intents()
     .add(discord_js_1.Intents.FLAGS.GUILDS)
@@ -65,7 +91,7 @@ const client = new discord_js_1.Client({ intents });
 function randomByte() {
     return 128 + Math.floor(Math.random() * 128);
 }
-function handleButton(button) {
+function handleDoubtButton(button) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             let channel = button.channel;
@@ -79,7 +105,7 @@ function handleButton(button) {
             let embed = new discord_js_1.MessageEmbed()
                 .setColor([randomByte(), randomByte(), randomByte()])
                 .setDescription(`${button.user} doubted.`)
-                .setFooter(moment().format('D MMM YYYY, hh:mm A'), button.user.avatarURL());
+                .setTimestamp(new Date());
             yield source.reply({ embeds: [embed] });
             yield button.reply(presetEmbed.doubt);
         }
@@ -88,7 +114,7 @@ function handleButton(button) {
         }
     });
 }
-function handleContextMenu(context) {
+function handleDoubtContext(context) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             let channel = context.channel;
@@ -101,7 +127,7 @@ function handleContextMenu(context) {
                 .setColor([randomByte(), randomByte(), randomByte()])
                 .setTitle('Press ❌ to doubt.')
                 .setDescription(`${context.user} wants to doubt.`)
-                .setFooter(moment().format('D MMM YYYY, hh:mm A'), context.user.avatarURL());
+                .setTimestamp(new Date());
             yield message.reply({
                 embeds: [embed],
                 components: buttons
@@ -110,6 +136,38 @@ function handleContextMenu(context) {
         }
         catch (_) {
             yield context.reply(presetEmbed.askForDoubtFailed);
+        }
+    });
+}
+function handleReactionContext(context) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            let channel = context.channel;
+            if (!channel) {
+                let guild = yield client.guilds.fetch(context.guildId);
+                channel = (yield guild.channels.fetch(context.channelId));
+            }
+            let message = yield channel.messages.fetch(context.targetId);
+            let sample = reactions[context.commandName].images;
+            let embed = new discord_js_1.MessageEmbed()
+                .setColor([randomByte(), randomByte(), randomByte()])
+                .setDescription((0, util_1.format)(reactions[context.commandName].text, context.user.toString()))
+                .setImage(sample[Math.floor(Math.random() * sample.length)])
+                .setTimestamp(new Date());
+            yield message.reply({
+                embeds: [embed],
+            });
+            yield context.reply({
+                embeds: [
+                    new discord_js_1.MessageEmbed()
+                        .setDescription((0, util_1.format)(reactions[context.commandName].text, 'you'))
+                        .setColor('BLUE')
+                ],
+                ephemeral: true,
+            });
+        }
+        catch (_) {
+            yield context.reply(presetEmbed.reactionFailed);
         }
     });
 }
@@ -145,10 +203,15 @@ client.on('guildCreate', (guild) => (() => __awaiter(void 0, void 0, void 0, fun
 }))().catch(console.error));
 client.on('interactionCreate', (interaction) => (() => __awaiter(void 0, void 0, void 0, function* () {
     if (interaction.isButton()) {
-        return handleButton(interaction);
+        return handleDoubtButton(interaction);
     }
     if (interaction.isContextMenu()) {
-        return handleContextMenu(interaction);
+        if (interaction.commandName === 'Ask for Doubt') {
+            return handleDoubtContext(interaction);
+        }
+        else {
+            return handleReactionContext(interaction);
+        }
     }
 }))().catch(console.error));
 client.login(process.env.DISCORD_TOKEN)
